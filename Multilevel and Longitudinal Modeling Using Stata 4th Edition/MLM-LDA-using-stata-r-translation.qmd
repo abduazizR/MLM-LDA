@@ -1,0 +1,177 @@
+---
+title: "Multilevel and Longtudinal Modelling Using R"
+subtitle: "R translation of Skrondal and Hsketh book"
+author: "Abdullah"
+format: html
+editor: visual
+---
+
+```{r}
+#|label: packages
+
+pacman::p_load(
+  haven,
+  tidyverse,
+  gt,
+  gtsummary,
+  modelsummary,
+  marginaleffects,
+  fixest,
+  rstatix,
+  easystats,
+  ggdist, # To show distributions
+  broom,
+  DataExplorer,
+  finalfit,
+  skimr,
+  sandwich,
+  estimatr
+)
+```
+
+
+# Preface
+
+Notes from the preface:
+
+-   Don't forget to use the answers and errata to guide you through working with the book.
+
+# Chapter 1: Review of linear regression
+
+## 1.2 Is there gender discrimination in faculty salaries?
+
+```{r}
+#| label: load data
+faculty <- read_dta("https://www.stata-press.com/data/mlmus4/faculty.dta")
+```
+
+
+```{r}
+#| label: descriptive stats 
+
+faculty |> 
+  group_by(male) |> 
+  rstatix::get_summary_stats(salary)
+
+t.test(salary ~ male, faculty)
+
+```
+
+
+
+```{r}
+#| label: boxplots and histograms to assess normality
+
+faculty |> 
+  ggplot(aes(x = as_factor(male), y= salary)) + geom_boxplot() + coord_flip() + geom_jitter(width=0.25, alpha=0.5)
+
+faculty |> 
+  ggplot(aes(x = as_factor(male), y= log10(salary))) + geom_boxplot() + coord_flip() + geom_jitter(width=0.25, alpha=0.5)
+
+# Histogram with counts
+faculty |> 
+  ggplot(aes(x = salary, fill = as.factor(male))) + geom_histogram() + facet_grid(vars(male))
+
+# Histogram with density
+faculty |> 
+  ggplot(aes(x = salary, fill = as.factor(male))) + 
+  geom_histogram(aes(y = ..density..),color = 1, bins = 50) + 
+  facet_grid(vars(male))
+
+faculty |> 
+  ggplot(aes(x = log10(salary), fill = as.factor(male))) + 
+  geom_histogram(aes(y = ..density..),color = 1, bins = 50) + 
+  facet_grid(vars(male))
+```
+
+## 1.3 Independent-sample t test
+
+```{r}
+#| label: t-test
+
+# The t-tests results are numerically consistent with STATA
+t.test(salary ~ male, faculty, var.equal = F) |> tidy()
+t.test(salary ~ male, faculty, var.equal = T) |> tidy()
+t.test(salary ~ male, faculty, var.equal = F) |> report() 
+t.test(salary ~ male, faculty, var.equal = T) |> report()
+
+lm(salary~ as_factor(male), data =faculty) |> 
+  tidy(conf.int = T)
+
+# Give similar results to STATA margins package
+lm(salary~ as_factor(male)-1, data =faculty) |> 
+  tidy(conf.int = T)
+```
+
+
+## 1.4 One-way analysis of variance (ANOVA)
+ The RMSE value here is different than the one in STATA
+```{r}
+#| label: anova
+
+anova(lm(salary~ as_factor(male), data =faculty) )
+performance(lm(salary~ as_factor(male), data =faculty) )
+modelsummary(lm(salary~ male, data =faculty) )
+```
+
+The chunk below shows to how get the estimates using the model with `predictions()`. The really cool thing is that this is identical with the Stata output. Also, the 95% CI are shown to be different between different commands even within STATA itself.
+
+```{r}
+#| label: adjusted predictions
+lm(salary~ male, data =faculty) |> 
+  predictions(newdata = datagrid(male = c(0,1)))
+
+```
+
+
+## 1.5 Simple linear regression
+
+```{r}
+# Explore marketability
+# Summary stats
+faculty |> 
+  skim(market)
+
+faculty |> distinct(market) |> nrow() #distinct values
+
+# Scatter plot (Figure 1.4)
+faculty |> 
+  ggplot(aes(x = market, y = salary)) + geom_point() + geom_smooth(method = "loess", se = F) + geom_smooth(method = "lm", color = "red", se = F)
+
+# Simple linear regression
+lm(salary ~ market, data = faculty) |> 
+  tidy(conf.int = T)
+lm(salary ~ market, data = faculty) |>
+  performance()
+# Centering market and refitting the model
+lm(salary ~ marketc, data = faculty |> mutate(marketc = market - mean(market))) |> 
+  augment(data = faculty) |> 
+  ggplot(aes(x = market, y = salary)) + geom_point()+  geom_smooth(method = "lm", se = F) +
+  geom_line(aes(x = market, y = .fitted), color = "darkgreen")
+  tidy(conf.int = T)
+
+# Plotting simple linear regression
+
+```
+
+
+## 1.6 Dummy variables
+
+Good to know: A simple linear regression y~x, where y is a continuous outcome and x is an explanatory binary variable, is equivalent to a t-test with equal variance because equal variance is the same as the homosckedasticity assumption in regression.
+
+t-test with unequal variance == simple linear regression y~x with correcting SEs for heterosckedasiticity
+
+```{r}
+# Simple linear regression
+lm(salary ~ male, data = faculty) |> 
+  tidy(conf.int = T)
+lm(salary ~ market, data = faculty) |>
+  performance()
+
+# One way to calculate standard errors and make them robust against heteroskecdasitity (unequal variance)
+feols(salary ~ male, data = faculty) |> 
+  tidy(conf.int = T, se = "hetero")
+```
+
+## 1.7 Multiple linear regression
+
