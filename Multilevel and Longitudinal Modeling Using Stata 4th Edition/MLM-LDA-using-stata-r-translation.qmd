@@ -25,7 +25,8 @@ pacman::p_load(
   finalfit,
   skimr,
   sandwich,
-  estimatr
+  estimatr,
+  equatiomatic
 )
 ```
 
@@ -43,6 +44,8 @@ Notes from the preface:
 ```{r}
 #| label: load data
 faculty <- read_dta("https://www.stata-press.com/data/mlmus4/faculty.dta")
+faculty2 <- faculty |> 
+  mutate(marketc = market - mean(market))
 ```
 
 
@@ -174,4 +177,192 @@ feols(salary ~ male, data = faculty) |>
 ```
 
 ## 1.7 Multiple linear regression
+
+```{r}
+faculty |> 
+  mutate(marketc = market - mean(market)) |> 
+  group_by(male) |> 
+  rstatix::get_summary_stats(marketc)
+
+faculty |> 
+  mutate(marketc = market - mean(market)) |> 
+  summary()
+```
+
+
+```{r}
+faculty2 <- faculty |> 
+  mutate(marketc = market - mean(market))
+
+faculty2 |>   ggplot(aes(x= marketc, y = salary, color = as_factor(male))) + geom_point() + geom_smooth(method = "lm", se = F)
+
+lm(salary ~ marketc + male, data = faculty2) |>
+  predictions() |> 
+  ggplot(aes(x= marketc, y = predicted, color = as_factor(male))) +  geom_smooth(method = "lm", se = F) +
+  geom_point(aes(y=salary))
+  
+```
+
+```{r}
+#| label: model
+lm(salary ~ marketc + male, data = faculty2) |> tidy(conf.int = T)
+lm(salary ~ marketc + male, data = faculty2) |> anova()
+olsrr::ols_regress(salary ~ marketc + male, data = faculty2) 
+
+```
+
+
+```{r}
+faculty2 |> 
+  ggplot(aes(marketc, color = as_factor(male))) + geom_density()
+```
+
+```{r}
+#| label: Adding years since degree to the model
+
+lm(salary ~ marketc + male + yearsdg, data = faculty2) |> tidy(conf.int = T)
+
+# Estimate the predicted mean estimates of the two genders based on yearsdg = 10, marketc = 0
+lm(salary~ marketc + male + yearsdg, data =faculty2) |> 
+  predictions(newdata = datagrid(male = c(0,1), yearsdg = 10, marketc = 0))
+
+lm(salary~ marketc + male + yearsdg, data =faculty2) |> 
+  predictions(newdata = datagrid(male = c(0,1)))
+```
+
+# 1.8 Interactions
+
+```{r}
+lm(salary ~ marketc + male *yearsdg, data = faculty2) |> tidy(conf.int = T)
+lm(salary ~ marketc + male *yearsdg, data = faculty2) |> extract_eq()
+```
+$$
+\operatorname{salary} = \alpha + \beta_{1}(\operatorname{marketc}) + \beta_{2}(\operatorname{male}) + \beta_{3}(\operatorname{yearsdg}) + \beta_{4}(\operatorname{male} \times \operatorname{yearsdg}) + \epsilon
+$$
+
+The chunk below gives the same estimate, standard error, t statisic, p.value, but they give slightly different confidence interval. wondering why?
+```{r}
+library(tidyverse)
+library(marginaleffects)
+library(haven)
+
+faculty <- read_dta("https://www.stata-press.com/data/mlmus4/faculty.dta")
+faculty2 <- faculty |>
+  mutate(marketc = market - mean(market))
+
+lm(salary~ marketc + male *yearsdg, data =faculty2) |> 
+  comparisons(
+    variables = list(male = c(0,1)),
+    newdata = datagrid(yearsdg = 10))
+
+```
+
+
+```{r}
+#| label: Plot interaction (Figure 1.14)
+lm(salary~ marketc + male *yearsdg, data =faculty2) |> 
+  predictions(variables = list(male = c(0,1), marketc = 0)) |> 
+  ggplot(aes(x = yearsdg, y = predicted, linetype = as_factor(male))) + geom_line() +scale_linetype_manual(values=c("dashed", "solid")) +
+  theme(legend.position = "bottom")
+```
+
+
+# 1.9 Dummy variables for more than two groups
+
+```{r}
+faculty3 <- faculty2 |> 
+  mutate(rank2 = as_factor(rank))
+
+# Basic model
+lm(salary~ rank2, data =faculty3) |> tidy(conf.int = T)
+
+# Get estimates for each rank with the corresponding 95% CI
+lm(salary~ rank2-1, data =faculty3) |> tidy(conf.int = T)
+
+
+# Full vs Associate
+lm(salary~ rank2, data =faculty3)|> 
+  comparisons(
+    variables = list(rank2 = "pairwise")) |>  tidy()
+
+# ANOVA
+anova(lm(salary~ rank2, data =faculty3))
+
+# Partial F tests (Equivalent to Stata's testparm command)
+full_model <- lm(salary~ marketc + male *yearsdg + rank2, data =faculty3)
+reduced_model <- lm(salary~ marketc + male *yearsdg , data =faculty3)
+anova(reduced_model, full_model)
+
+# Show the full model
+full_model |> tidy(conf.int =T)
+reduced_model |> tidy(conf.int =T)
+full_model |> extract_eq(coef_digits = 2, use_coefs = T)
+
+# Using full model, provide the estimated difference in mean salary between male vs female at 10 years since degree
+full_model |> 
+  comparisons(
+    variables = list(male = c(0,1)),
+    newdata = datagrid(yearsdg = 10)
+  )
+```
+$$
+\operatorname{\widehat{salary}} = 37493.09 + 36987.08(\operatorname{marketc}) - 1043.39(\operatorname{male}) + 405.27(\operatorname{yearsdg}) + 3349.01(\operatorname{rank2}_{\operatorname{Associate}}) + 11168.26(\operatorname{rank2}_{\operatorname{Full}}) + 184.38(\operatorname{male} \times \operatorname{yearsdg})
+$$
+
+
+# 1.10 Other types of interactions
+
+## Interaction between dummy variables
+
+This is equivalent to two-way ANOVA
+
+```{r}
+lm(salary~ marketc + male*rank2 +yearsdg, data =faculty3) |> tidy(conf.int =T)
+lm(salary~ marketc + male*rank2 +yearsdg, data =faculty3)|> extract_eq(coef_digits = 2, use_coefs = F,terms_per_line = 3,
+                                                                        wrap = T)
+```
+$$
+\begin{aligned}
+\operatorname{salary} &= \alpha + \beta_{1}(\operatorname{marketc}) + \beta_{2}(\operatorname{male})\ + \\
+&\quad \beta_{3}(\operatorname{rank2}_{\operatorname{Associate}}) + \beta_{4}(\operatorname{rank2}_{\operatorname{Full}}) + \beta_{5}(\operatorname{yearsdg})\ + \\
+&\quad \beta_{6}(\operatorname{male} \times \operatorname{rank2}_{\operatorname{Associate}}) + \beta_{7}(\operatorname{male} \times \operatorname{rank2}_{\operatorname{Full}}) + \epsilon
+\end{aligned}
+$$
+
+- Interaction between dummy variables can be interpreted as difference of difference
+
+
+```{r}
+# Partial F tests (Equivalent to Stata's testparm command) to test for interaction terms
+full_model <- lm(salary~ marketc + male +yearsdg + rank2, data =faculty3)
+reduced_model <- lm(salary~ marketc + male*rank2 +yearsdg , data =faculty3)
+anova(reduced_model, full_model)
+```
+
+
+## Interaction between continuous covariates
+
+```{r}
+lm(salary~ marketc*yearsdg + male+rank2, data =faculty3) |> tidy(conf.int =T)
+lm(salary~ marketc*yearsdg + male+rank2, data =faculty3)|> extract_eq(coef_digits = 2, use_coefs = F,terms_per_line = 3,
+                                                                        wrap = T)
+```
+
+# 1.11 Non linear effects
+
+```{r}
+lm(salary~ yearsdg*(marketc+male)+ I(yearsdg^2) + rank2, data =faculty3) |> tidy(conf.int =T)
+lm(salary~ yearsdg*(marketc+male)+ I(yearsdg^2) + rank2, data =faculty3) |> 
+  predictions(variables = list(male = c(0,1), marketc = 0, rank2 = "Assistant")) |> 
+  ggplot(aes(x = yearsdg, y = predicted, linetype = as_factor(male))) + geom_line() +scale_linetype_manual(values=c("dashed", "solid")) +
+  theme(legend.position = "bottom")
+```
+
+# 1.12 Residual diagnostics
+
+Useful to check homosckedaticity and normal distribution of errors
+
+```{r}
+lm(salary~ yearsdg*(marketc+male)+ I(yearsdg^2) + rank2, data =faculty3) |> check_model()
+```
 
