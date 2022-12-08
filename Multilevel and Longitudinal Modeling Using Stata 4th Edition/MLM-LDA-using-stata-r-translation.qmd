@@ -26,7 +26,10 @@ pacman::p_load(
   skimr,
   sandwich,
   estimatr,
-  equatiomatic
+  equatiomatic,
+  ggpubr,
+  ggsci,
+  ggthemes
 )
 ```
 
@@ -365,4 +368,39 @@ Useful to check homosckedaticity and normal distribution of errors
 ```{r}
 lm(salary~ yearsdg*(marketc+male)+ I(yearsdg^2) + rank2, data =faculty3) |> check_model()
 ```
+# 1.15 Exercise
 
+To be done later
+
+
+
+# Chapter 2: Two-level models: variance-components models
+
+## 2.1 Introduction
+
+## 2.2 Introducing the pefr.dta
+
+We will restrict the analysis in this chapter to meter = `wm`
+```{r}
+#| label: load data
+pefr <- read_dta("https://www.stata-press.com/data/mlmus4/pefr.dta")
+pefr_long <- pefr |> 
+  pivot_longer(cols = -id) |> 
+  mutate(occasion = parse_number(name),
+         meter = str_remove(name, "[1]|[2]")) |> 
+  select(-name) |> 
+  relocate(c(id, meter,occasion, value))
+```
+
+## 2.3 Inspecting within-subject dependence
+
+```{r}
+pefr_long |> 
+  filter(meter == "wm") |> 
+  ggplot(aes(x = id, y = value, color = as_factor(occasion))) + geom_point() +
+  geom_hline(yintercept = mean(pefr_long$value)) + theme_stata() + scale_x_continuous(breaks = seq(1,17,1))
+```
+
+## 2.4 The variance- component model
+
+### 2.4.1 
