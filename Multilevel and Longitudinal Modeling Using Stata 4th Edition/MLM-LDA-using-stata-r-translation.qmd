@@ -59,7 +59,8 @@ faculty |>
   group_by(male) |> 
   rstatix::get_summary_stats(salary)
 
-t.test(salary ~ male, faculty)
+t.test(salary ~ male, faculty) |> 
+  tidy()
 
 ```
 
@@ -69,7 +70,7 @@ t.test(salary ~ male, faculty)
 #| label: boxplots and histograms to assess normality
 
 faculty |> 
-  ggplot(aes(x = as_factor(male), y= salary)) + geom_boxplot() + coord_flip() + geom_jitter(width=0.25, alpha=0.5)
+  ggplot(aes(x = as_factor(male), y= salary, fill = as_factor(male))) + geom_boxplot() + coord_flip() + geom_jitter(width=0.25, alpha=0.5)
 
 faculty |> 
   ggplot(aes(x = as_factor(male), y= log10(salary))) + geom_boxplot() + coord_flip() + geom_jitter(width=0.25, alpha=0.5)
@@ -96,6 +97,7 @@ faculty |>
 #| label: t-test
 
 # The t-tests results are numerically consistent with STATA
+t
 t.test(salary ~ male, faculty, var.equal = F) |> tidy()
 t.test(salary ~ male, faculty, var.equal = T) |> tidy()
 t.test(salary ~ male, faculty, var.equal = F) |> report() 
@@ -115,7 +117,7 @@ lm(salary~ as_factor(male)-1, data =faculty) |>
 ```{r}
 #| label: anova
 
-anova(lm(salary~ as_factor(male), data =faculty) )
+anova(lm(salary~ as_factor(male), data =faculty) ) 
 performance(lm(salary~ as_factor(male), data =faculty) )
 modelsummary(lm(salary~ male, data =faculty) )
 ```
@@ -160,6 +162,10 @@ lm(salary ~ marketc, data = faculty |> mutate(marketc = market - mean(market))) 
 
 ```
 
+### Table 1.2
+You can create tables like this using https://vincentarelbundock.github.io/modelsummary/articles/modelsummary.html
+
+
 
 ## 1.6 Dummy variables
 
@@ -171,7 +177,7 @@ t-test with unequal variance == simple linear regression y~x with correcting SEs
 # Simple linear regression
 lm(salary ~ male, data = faculty) |> 
   tidy(conf.int = T)
-lm(salary ~ market, data = faculty) |>
+lm(salary ~ market, data = faculty) |> tidy()
   performance()
 
 # One way to calculate standard errors and make them robust against heteroskecdasitity (unequal variance)
