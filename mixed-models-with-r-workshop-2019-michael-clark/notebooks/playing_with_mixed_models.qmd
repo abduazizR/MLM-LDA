@@ -1,0 +1,46 @@
+---
+title: "My notes on Clark's course"
+author: Abdullah
+format: html
+---
+
+
+
+```{r}
+library(tidyverse)
+library(broom)
+library(broom.mixed)
+library(lme4)
+# remotes::install_github('m-clark/mixedup')
+library(mixedup)
+```
+
+
+
+```{r}
+gpa = get(load('mixed-models-with-r-workshop-2019-michael-clark/data/gpa.RData')) |>  as_tibble()
+```
+
+
+# Standard regressio
+```{r}
+lm(gpa ~ occasion, data = gpa) |> tidy()
+lm(gpa ~ occasion, data = gpa) |> summary()
+```
+
+
+# Fit a mixed model
+We will fit the random intercept model
+
+```{r}
+gpa_mixed_mod = lmer(gpa ~ occasion + (1 | student), data = gpa)
+summary(gpa_mixed_mod)
+```
+
+
+
+```{r}
+confint(gpa_mixed_mod)
+broom.mixed::tidy(gpa_mixed_mod, confint = T)
+mixedup::extract_vc(gpa_mixed_mod)
+```
