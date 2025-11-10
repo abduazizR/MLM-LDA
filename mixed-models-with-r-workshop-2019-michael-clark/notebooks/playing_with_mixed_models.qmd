@@ -13,6 +13,8 @@ library(broom.mixed)
 library(lme4)
 # remotes::install_github('m-clark/mixedup')
 library(mixedup)
+library(merTools)
+
 ```
 
 
@@ -41,6 +43,20 @@ summary(gpa_mixed_mod)
 
 ```{r}
 confint(gpa_mixed_mod)
-broom.mixed::tidy(gpa_mixed_mod, confint = T)
+broom.mixed::tidy(gpa_mixed_mod)
 mixedup::extract_vc(gpa_mixed_mod)
+```
+
+
+
+```{r}
+ranef(gpa_mixed_mod)$student |> head(5)
+```
+
+
+
+```{r}
+predictInterval(gpa_mixed_mod) |> tibble() |> distinct()
+REsim(gpa_mixed_mod)
+plotREsim(REsim(gpa_mixed_mod))
 ```
