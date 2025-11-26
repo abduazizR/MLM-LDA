@@ -1,14 +1,14 @@
 ---
 title: "Mixed Models: Basics"
 output: html_notebook
-editor_options: 
+editor_options:
   chunk_output_type: inline
 ---
 
 
 ```{r chunk_setup, include=FALSE, eval=TRUE}
-knitr::opts_chunk$set(echo = T, message=F, warning=F, comment=NA, autodep=F, 
-                      eval=T, cache.rebuild=F, cache=T, R.options=list(width=120), 
+knitr::opts_chunk$set(echo = T, message=F, warning=F, comment=NA, autodep=F,
+                      eval=T, cache.rebuild=F, cache=T, R.options=list(width=120),
                       fig.width=8, fig.align = 'center', dev.args=list(bg = 'transparent'), dev='svglite')
 ```
 
@@ -60,11 +60,11 @@ confint(gpa_mixed)
 Now examine the random effects.
 
 ```{r gpa_mixed_ranef}
-ranef(gpa_mixed)$student 
+ranef(gpa_mixed)$student
 ```
 
 ```{r gpa_mixed_rancoef}
-coef(gpa_mixed)$student 
+coef(gpa_mixed)$student
 ```
 
 As we didn't allow the occasion effect to vary, it is constant.  We'll change this later.
@@ -98,7 +98,7 @@ data("sleepstudy")
 head(sleepstudy)
 ```
 
-1. Run a regression with Reaction as the target variable and Days as the predictor. 
+1. Run a regression with Reaction as the target variable and Days as the predictor.
 
 2. Run a mixed model with a random intercept for Subject.
 
@@ -171,6 +171,6 @@ qplot(x=re, geom='density', xlim=c(-3,3))
 
 1. Change the random effect variance/sd and/or the residual variance/sd and note your new estimate of the ICC, and plot the random effect as before.
 
-2. Reset the values to the original.  Change <span class="objclass">Ngroups</span> to 50. What differences do you see in the confidence interval estimates? 
+2. Reset the values to the original.  Change <span class="objclass">Ngroups</span> to 50. What differences do you see in the confidence interval estimates?
 
 3. Set the Ngroups back to 100. Now change <span class="objclass">NperGroup</span> to 10, and note again the how the CI is different from the base condition.

@@ -1,6 +1,6 @@
 ---
 title: "My notes on Clark's course"
-author: Abdullah
+author: "Abdullah"
 format: html
 ---
 
@@ -20,7 +20,20 @@ library(merTools)
 
 
 ```{r}
-gpa = get(load('mixed-models-with-r-workshop-2019-michael-clark/data/gpa.RData')) |>  as_tibble()
+gpa = get(load(
+  'mixed-models-with-r-workshop-2019-michael-clark/data/gpa.RData'
+)) |>
+  as_tibble()
+pupils = get(load(
+  'mixed-models-with-r-workshop-2019-michael-clark/data/pupils.RData'
+)) |>
+  as_tibble()
+nurses = get(
+  load(
+    'mixed-models-with-r-workshop-2019-michael-clark/data/nurses.RData'
+  )
+) |>
+  as_tibble()
 ```
 
 
@@ -60,3 +73,103 @@ predictInterval(gpa_mixed_mod) |> tibble() |> distinct()
 REsim(gpa_mixed_mod)
 plotREsim(REsim(gpa_mixed_mod))
 ```
+
+
+
+# Exercises with the Sleep study
+
+Run a regression with Reaction as the target variable and Days as the predictor.
+```{r}
+sleep_lm = lm(Reaction ~ Days, data = sleepstudy)
+sleep_mixed = lmer(Reaction ~ Days + (1 | Subject), data = sleepstudy)
+mixedup::extract_vc(sleep_mixed)
+```
+
+
+# Exercises with the pupils data
+
+
+```{r}
+model1 = lmer(
+  achievement ~ sex + ses + (1 | primary_school_id) + (1 | secondary_school_id),
+  data = pupils
+)
+
+model2 = lmer(
+  achievement ~
+    sex + ses + (1 | primary_school_id + secondary_school_id),
+  data = pupils
+)
+```
+
+
+
+```{r}
+summary(model1)
+summary(model2)
+```
+
+
+
+```{r}
+merTools::plotREsim(merTools::REsim(model2))
+```
+
+
+# Play with Nurses data
+
+
+```{r}
+mod1 = lmer(
+  stress ~
+    age +
+    sex +
+    experience +
+    treatment +
+    wardtype +
+    hospsize +
+    (1 | hospital) +
+    (1 | hospital:ward),
+  data = nurses
+)
+
+mod2 = lmer(
+  stress ~
+    age +
+    sex +
+    experience +
+    treatment +
+    wardtype +
+    hospsize +
+    (1 | hospital / ward),
+  data = nurses
+)
+
+mod3 = lmer(
+  stress ~
+    age +
+    sex +
+    experience +
+    treatment +
+    wardtype +
+    hospsize +
+    (1 | hospital:ward),
+  data = nurses
+)
+
+list(mod1, mod2, mod3) |>
+  map(summary)
+
+anova(mod1, mod2, mod3)
+
+```
+
+$$
+y = \textrm{Int} + \textrm{ClusterEffect} + b*\mathrm{time} + \epsilon
+$$
+
+
+$$
+y_i-\bar{y_i} = (X_i-\bar{X_i})\beta + (\epsilon-\bar{\epsilon_i})
+
+$$
